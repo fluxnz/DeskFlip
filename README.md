@@ -2,7 +2,7 @@
 
 DeskFlip is a Windows 11 desktop utility for creating portable backups of a Windows user profile and selected application data, then importing those backups on another PC. It provides a graphical interface for choosing what to back up and restore, so a migration can include only the items you need.
 
-The application is implemented as a single Python file, [`DeskFlip.py`](DeskFlip.py), with its logo embedded in the source.
+DeskFlip is distributed as a compiled Windows executable. The application and its logo are implemented in the single source file [`DeskFlip.py`](DeskFlip.py).
 
 ## What DeskFlip can migrate
 
@@ -29,22 +29,10 @@ Profile migrations can include sensitive information such as saved browser login
 
 You can enable **Password-protect archive (AES-256)** when creating a backup. The backup payload and its path index are encrypted, and payload entry names are randomized. The small reference manifest remains readable and contains package metadata and selected custom-folder locations. The password is not saved in the archive; a lost password cannot be recovered.
 
-## Run from source
+## Run DeskFlip
 
-DeskFlip requires Windows 11 and a Python installation that includes Tkinter.
+Run `DeskFlip.exe` from the packaged distribution on Windows 11. Python does not need to be installed: the compiled executable packages the Python runtime and the dependencies included in that build. No VS Code setup or separate Tkinter installation is required.
 
-1. Install Python for Windows with Tkinter enabled.
-2. Open PowerShell in this folder.
-3. Run:
+AES-256 password-protected archives use the optional `pyzipper` dependency. It must be included when the executable is built for password-protected backup and restore to be available. If it is not included, unprotected backups and imports still work, but the app cannot create or open AES-encrypted archives.
 
-   ```powershell
-   python .\DeskFlip.py
-   ```
-
-Password-protected archives require the optional `pyzipper` package. Install it with:
-
-```powershell
-python -m pip install pyzipper
-```
-
-Without `pyzipper`, unprotected backups and imports remain available, but AES-256 archive support is unavailable.
+The Python source is available for developers who want to inspect or build the application; end users can run the packaged executable without installing Python packages.
