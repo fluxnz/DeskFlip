@@ -3909,6 +3909,12 @@ class ModernMigratorApp:
         self._build_ui()
         self.log(f"{APP_TITLE} {APP_VERSION} initialized.", level="INFO")
         self.log(f"Session log file: {self.current_log_file}", level="INFO")
+        self.log(
+            "Migrating to a different Windows username? Some restored values may still contain the old username "
+            "(e.g. wallpaper path, app-settings paths, Remote Desktop Manager entries). Encrypted data such as "
+            "saved passwords and credentials may not decrypt under a different Windows account.",
+            level="WARN",
+        )
 
     def _init_session_log_file(self, prefix="session"):
         """Initialize a new disk log file for the session."""
