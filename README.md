@@ -12,10 +12,12 @@ Select individual categories in the app's backup and import screens. Available d
 - **Windows settings and personalization:** wallpaper, mouse and keyboard settings, theme and accent colors, File Explorer preferences, sound settings, Wi-Fi profiles, network drive mappings, Windows credentials and Vault data, and user-installed fonts.
 - **Microsoft Outlook:** profiles and account configuration, signatures, autocomplete data, and PST files. Offline OST caches are excluded.
 - **Shortcuts and taskbar pins:** Quick Launch shortcuts, pinned taskbar shortcuts, and taskbar layout settings.
-- **Developer and power-user tools:** Visual Studio Code user settings and extensions, Windows Terminal profiles and PowerShell scripts, Git and SSH configuration, Remote Desktop connection data, PuTTY, WinSCP, FileZilla, and Notepad++ configuration and sessions.
+- **Developer and power-user tools:** Visual Studio Code user settings and extensions, Windows Terminal profiles and PowerShell scripts, Git and SSH configuration, Remote Desktop connection data, PuTTY, WinSCP, FileZilla, Devolutions Remote Desktop Manager local settings and data sources, and Notepad++ configuration and sessions.
 - **Personal files:** Desktop, Downloads, Documents, Pictures, and any additional folders you choose in the app.
 
 Some data depends on the applications and Windows features installed on the source or destination PC. Review the selection in the app before running a migration.
+
+**Remote Desktop Manager note:** DeskFlip copies the local `%LOCALAPPDATA%\Devolutions\RemoteDesktopManager` folder and its registry settings. Install Remote Desktop Manager on the new PC before restoring. Entries held in a remote or shared data source are not covered; for those, and as a fail-safe, also use RDM's own export (File > Settings > Export).
 
 ## Backups and restore
 

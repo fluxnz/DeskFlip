@@ -19,6 +19,7 @@ Migrates:
 - Git & SSH configurations (.gitconfig, .ssh keys/hosts)
 - Remote Desktop (RDP) connections & Default.rdp
 - PuTTY, WinSCP & FileZilla site manager and sessions
+- Devolutions Remote Desktop Manager local settings and data sources
 - Notepad++ configuration, custom macros, and active session
 """
 
@@ -858,6 +859,8 @@ A standalone, modern, dark-themed User Profile and Application Migration Utility
   - Saved RDP server connections, MRU history, and `Default.rdp` connection file
 - **PuTTY, WinSCP & FileZilla (B:4)**:
   - PuTTY stored sessions & host keys, WinSCP registry/ini sites, and FileZilla site manager (`sitemanager.xml`)
+- **Devolutions Remote Desktop Manager**:
+  - Local settings and local data sources from `%LOCALAPPDATA%\Devolutions\RemoteDesktopManager`, plus `HKCU\Software\Devolutions\RemoteDesktopManager`
 - **Notepad++ Settings & Sessions (B:5)**:
   - Custom macros & shortcuts (`shortcuts.xml`), general configuration (`config.xml`), and active tab sessions (`session.xml`)
 
@@ -1295,6 +1298,7 @@ def get_selected_backup_source_dirs(selected_ids, active_custom):
         ],
         "git_ssh": [userprofile / ".ssh"],
         "ssh_ftp_clients": [appdata / "FileZilla"],
+        "devolutions_rdm": [localappdata / "Devolutions" / "RemoteDesktopManager"],
         "notepad_plus_plus": [appdata / "Notepad++"],
         "vscode": [appdata / "Code" / "User", userprofile / ".vscode" / "extensions"],
     }
@@ -3212,6 +3216,74 @@ class ModuleSSHAndFTP:
             log(f"Restored FileZilla site manager and configs ({copied} files).", level="SUCCESS")
 
 
+class ModuleDevolutionsRDM:
+    ID = "devolutions_rdm"
+    NAME = "Devolutions Remote Desktop Manager"
+    CATEGORY = MigrationCategory.CAT_DEV_TOOLS
+    DESCRIPTION = "Devolutions Remote Desktop Manager local settings and local data sources (%LOCALAPPDATA%\\Devolutions\\RemoteDesktopManager) plus its registry settings"
+    PROCESSES = ["RemoteDesktopManager.exe"]
+    REG_PATH = r"Software\Devolutions\RemoteDesktopManager"
+
+    @staticmethod
+    def _data_dir():
+        _, localappdata, _ = get_appdata_paths()
+        return localappdata / "Devolutions" / "RemoteDesktopManager"
+
+    @staticmethod
+    def detect():
+        data_dir = ModuleDevolutionsRDM._data_dir()
+        has_dir = data_dir.exists() and any(data_dir.iterdir())
+        has_reg = reg_key_exists(ModuleDevolutionsRDM.REG_PATH)
+        if has_dir or has_reg:
+            return True, "Remote Desktop Manager settings found"
+        return False, "Not installed / not configured"
+
+    @staticmethod
+    def backup(dest_dir: Path, log):
+        dest = dest_dir / "DevTools" / "DevolutionsRDM"
+        dest.mkdir(parents=True, exist_ok=True)
+        data_dir = ModuleDevolutionsRDM._data_dir()
+
+        log("Backing up Devolutions Remote Desktop Manager settings...", level="STEP")
+        copied = 0
+        if data_dir.exists():
+            copied, _ = copy_folder_filtered(data_dir, dest / "RemoteDesktopManager", log_cb=log)
+            log(f"Backed up {copied} Remote Desktop Manager files.", level="INFO")
+        else:
+            log("Remote Desktop Manager data folder not found.", level="WARN")
+
+        reg_exported = export_registry_key(ModuleDevolutionsRDM.REG_PATH, dest / "RDM.reg")
+        log(f"Exported Remote Desktop Manager registry settings: {'Yes' if reg_exported else 'No'}.", level="INFO")
+
+        return {
+            "files_count": copied,
+            "registry_exported": reg_exported,
+            "summary": f"{copied} file(s), Registry: {'Yes' if reg_exported else 'No'}"
+        }
+
+    @staticmethod
+    def restore(src_dir: Path, log):
+        src = src_dir / "DevTools" / "DevolutionsRDM"
+        if not src.exists():
+            log("No Remote Desktop Manager backup data found.", level="WARN")
+            return
+
+        if is_process_running(ModuleDevolutionsRDM.PROCESSES):
+            terminate_processes(ModuleDevolutionsRDM.PROCESSES, log_fn=log)
+
+        log("Restoring Devolutions Remote Desktop Manager settings...", level="STEP")
+        data_bk = src / "RemoteDesktopManager"
+        if data_bk.exists():
+            target = ModuleDevolutionsRDM._data_dir()
+            target.mkdir(parents=True, exist_ok=True)
+            copied, _ = copy_folder_filtered(data_bk, target, log_cb=log)
+            log(f"Restored {copied} Remote Desktop Manager files.", level="SUCCESS")
+
+        reg_file = src / "RDM.reg"
+        if reg_file.exists() and import_registry_key(reg_file):
+            log("Imported Remote Desktop Manager registry settings.", level="SUCCESS")
+
+
 class ModuleNotepadPlusPlus:
     ID = "notepad_plus_plus"
     NAME = "Notepad++ Settings & Sessions"
@@ -3688,6 +3760,7 @@ MODULES = [
     ModuleGitSSH,
     ModuleRDP,
     ModuleSSHAndFTP,
+    ModuleDevolutionsRDM,
     ModuleNotepadPlusPlus,
 ]
 
