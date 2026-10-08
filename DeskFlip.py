@@ -24,6 +24,7 @@ Migrates:
 """
 
 import os
+import re
 import errno
 import sys
 import json
@@ -1244,6 +1245,16 @@ def get_appdata_paths():
     localappdata = Path(os.environ.get("LOCALAPPDATA", ""))
     userprofile = Path(os.environ.get("USERPROFILE", ""))
     return appdata, localappdata, userprofile
+
+
+def remap_profile_path(original_path) -> Path:
+    """Re-root a path under another user's profile (drive:/Users/name/...) onto the current USERPROFILE."""
+    text = str(original_path)
+    match = re.match(r"^[A-Za-z]:\\Users\\[^\\]+(?=\\|$)", text, re.IGNORECASE)
+    current = os.environ.get("USERPROFILE", "")
+    if match and current:
+        return Path(current + text[match.end():])
+    return Path(text)
 
 
 def get_user_folder(value_name: str, fallback_name: str) -> Path:
@@ -5898,7 +5909,7 @@ class ModernMigratorApp:
                     if check_job_cancelled():
                         cancel_restore()
                         return
-                    orig_p = Path(cf["original_path"])
+                    orig_p = remap_profile_path(cf["original_path"])
                     arch_sub = temp_dir / Path(cf["archive_subpath"])
                     if arch_sub.exists():
                         self.log(f"Restoring custom folder '{cf['name']}' to {orig_p}...", level="STEP")
