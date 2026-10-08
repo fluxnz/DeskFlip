@@ -4543,7 +4543,16 @@ class ModernMigratorApp:
                 summary_lbl.pack(fill=tk.X, expand=True, anchor="w", pady=(2, 0))
                 self.restore_summaries[mod.ID] = summary_lbl
 
-        # Custom Folders Container on Restore Tab
+                local_detected, local_msg = mod.detect()
+                tk.Label(
+                    desc_frame,
+                    text=f"This PC: {'●' if local_detected else '○'} {local_msg}",
+                    font=("Segoe UI", 8),
+                    fg=THEME["success"] if local_detected else THEME["text_muted"],
+                    bg=THEME["card_bg"],
+                    anchor="w",
+                    justify=tk.LEFT
+                ).pack(fill=tk.X, expand=True, anchor="w", pady=(2, 0))
         self.restore_custom_cards_frame = tk.Frame(parent, bg=THEME["bg"])
         self.restore_custom_cards_frame.pack(fill=tk.X)
         self._refresh_restore_custom_cards()
@@ -5099,8 +5108,8 @@ class ModernMigratorApp:
                 conflicts.append((mod.NAME, active))
         return conflicts
 
-    def _prompt_close_conflicting_apps(self, conflicts):
-        """Display modern dialog listing running apps and offering to terminate them before backup."""
+    def _prompt_close_conflicting_apps(self, conflicts, action="backup"):
+        """Display modern dialog listing running apps and offering to terminate them before a backup or import."""
         dialog = tk.Toplevel(self.root)
         dialog.title("Applications Must Be Closed")
         dialog.geometry("560x370")
@@ -5133,7 +5142,7 @@ class ModernMigratorApp:
 
         msg_lbl = tk.Label(
             body,
-            text="The following applications are currently open and must be closed\nbefore the backup can proceed safely:",
+            text=f"The following applications are currently open and must be closed\nbefore the {action} can proceed safely:",
             font=("Segoe UI", 10),
             fg=THEME["text"],
             bg=THEME["bg"],
@@ -5159,7 +5168,7 @@ class ModernMigratorApp:
 
         note_lbl = tk.Label(
             body,
-            text="Active applications hold locks on databases and session caches.\nThe backup cannot run while they are open.",
+            text=f"Active applications hold locks on databases and session caches.\nThe {action} cannot run while they are open.",
             font=("Segoe UI", 8, "italic"),
             fg=THEME["text_muted"],
             bg=THEME["bg"],
@@ -5180,7 +5189,7 @@ class ModernMigratorApp:
             if still_open:
                 messagebox.showwarning(
                     "Applications Still Open",
-                    f"The following process(es) could not be closed automatically:\n{', '.join(still_open)}\n\nPlease close them manually, then try backup again.",
+                    f"The following process(es) could not be closed automatically:\n{', '.join(still_open)}\n\nPlease close them manually, then try {action} again.",
                     parent=dialog
                 )
                 dialog.destroy()
@@ -5194,7 +5203,7 @@ class ModernMigratorApp:
 
         btn_cancel = tk.Button(
             btn_bar,
-            text="Cancel Backup",
+            text=f"Cancel {action.capitalize()}",
             font=("Segoe UI", 9),
             bg=THEME["surface_alt"],
             fg=THEME["text"],
@@ -5716,6 +5725,12 @@ class ModernMigratorApp:
         )
         if not confirm:
             return
+
+        conflicts = self._check_running_processes_for_backup(selected_ids)
+        if conflicts:
+            if not self._prompt_close_conflicting_apps(conflicts, action="import"):
+                self.log("Import cancelled: running applications must be closed first.", level="WARN")
+                return
 
         archive_password = None
         if self.backup_requires_password:
