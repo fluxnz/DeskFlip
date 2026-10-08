@@ -1264,7 +1264,7 @@ def get_user_folder(value_name: str, fallback_name: str) -> Path:
     return userprofile / fallback_name
 
 
-def get_selected_backup_source_dirs(selected_ids, active_custom):
+def get_module_source_dirs_map():
     appdata, localappdata, userprofile = get_appdata_paths()
     quick_launch = appdata / "Microsoft" / "Internet Explorer" / "Quick Launch"
     source_dirs_by_module = {
@@ -1301,7 +1301,40 @@ def get_selected_backup_source_dirs(selected_ids, active_custom):
         "devolutions_rdm": [localappdata / "Devolutions" / "RemoteDesktopManager"],
         "notepad_plus_plus": [appdata / "Notepad++"],
         "vscode": [appdata / "Code" / "User", userprofile / ".vscode" / "extensions"],
+        "wallpaper": [appdata / "Microsoft" / "Windows" / "Themes"],
+        "rdp_connections": [userprofile / "Documents"],
     }
+    return source_dirs_by_module
+
+
+MODULE_EXTRA_REGISTRY = {
+    "sound_prefs": [r"Software\Microsoft\Internet Explorer\LowRegistry\Audio\PolicyConfig\PropertyStore"],
+    "rdp_connections": [r"Software\Microsoft\Terminal Server Client"],
+    "ssh_ftp_clients": [r"Software\SimonTatham", r"Software\Martin Prikryl\WinSCP 2"],
+    "drive_mappings": [r"Network"],
+    "wallpaper": [r"Control Panel\Desktop"],
+}
+MODULE_EXTRA_NOTES = {
+    "wifi": ["Wi-Fi profiles via netsh wlan (system store)"],
+    "ssh_ftp_clients": [r"%APPDATA% (WinSCP.ini)"],
+}
+
+
+def get_module_locations(mod):
+    """Return folder and registry locations (no individual files) used by a module."""
+    folders = [str(p) for p in get_module_source_dirs_map().get(mod.ID, [])]
+    keys = list(getattr(mod, "REGISTRY_KEYS", [])) + MODULE_EXTRA_REGISTRY.get(mod.ID, [])
+    seen = set()
+    items = []
+    for entry in folders + ["HKCU\\" + k for k in keys] + MODULE_EXTRA_NOTES.get(mod.ID, []):
+        if entry not in seen:
+            seen.add(entry)
+            items.append(entry)
+    return items
+
+
+def get_selected_backup_source_dirs(selected_ids, active_custom):
+    source_dirs_by_module = get_module_source_dirs_map()
     source_dirs = [path for module_id in selected_ids for path in source_dirs_by_module.get(module_id, [])]
     source_dirs.extend(Path(item["path"]) for item in active_custom)
     return source_dirs
@@ -4069,6 +4102,57 @@ class ModernMigratorApp:
         )
         close_button.pack(side=tk.RIGHT, padx=12, pady=(0, 12))
 
+    def _bind_location_popup(self, widget, mod):
+        widget.bind("<Button-3>", lambda e: self._show_location_popup(widget, mod, e.x_root, e.y_root))
+
+    def _show_location_popup(self, widget, mod, x, y):
+        """Floating bulleted list of a module's folders and registry keys; fades once the cursor leaves."""
+        old = getattr(self, "_loc_popup", None)
+        if old is not None:
+            try:
+                old.destroy()
+            except tk.TclError:
+                pass
+        locations = get_module_locations(mod) or ["No folder or registry locations (uses system APIs)"]
+        pop = tk.Toplevel(self.root)
+        self._loc_popup = pop
+        pop.overrideredirect(True)
+        pop.attributes("-topmost", True)
+        pop.attributes("-alpha", 1.0)
+        frame = tk.Frame(pop, bg=THEME["card_bg"], bd=1, relief="solid")
+        frame.pack(fill=tk.BOTH, expand=True)
+        tk.Label(frame, text=f"{mod.NAME} - locations", font=("Segoe UI", 9, "bold"),
+                 fg=THEME["text"], bg=THEME["card_bg"], anchor="w").pack(fill=tk.X, padx=10, pady=(8, 2))
+        tk.Label(frame, text="\n".join(f"\u2022 {loc}" for loc in locations), font=("Segoe UI", 8),
+                 fg=THEME["text_secondary"], bg=THEME["card_bg"], anchor="w", justify=tk.LEFT,
+                 wraplength=620).pack(fill=tk.X, padx=10, pady=(0, 8))
+        pop.update_idletasks()
+        pop.geometry(f"+{x + 6}+{y + 6}")
+        state = {"alpha": 1.0}
+
+        def inside(w):
+            try:
+                px, py = pop.winfo_pointerxy()
+                return (w.winfo_rootx() <= px < w.winfo_rootx() + w.winfo_width()
+                        and w.winfo_rooty() <= py < w.winfo_rooty() + w.winfo_height())
+            except tk.TclError:
+                return False
+
+        def tick():
+            if not pop.winfo_exists():
+                return
+            if inside(pop) or inside(widget):
+                state["alpha"] = 1.0
+            else:
+                state["alpha"] -= 0.1
+            if state["alpha"] <= 0:
+                pop.destroy()
+                return
+            pop.attributes("-alpha", state["alpha"])
+            pop.after(60, tick)
+
+        pop.after(1500, tick)
+
     def _build_backup_tab(self):
         parent = self.tab_backup
 
@@ -4192,6 +4276,7 @@ class ModernMigratorApp:
                     cursor="hand2"
                 )
                 chk.pack(side=tk.LEFT, padx=12, pady=8)
+                self._bind_location_popup(chk, mod)
 
                 det_color = THEME["success"] if detected else THEME["text_muted"]
                 det_lbl = tk.Label(
@@ -4506,6 +4591,7 @@ class ModernMigratorApp:
                     cursor="hand2"
                 )
                 chk.pack(side=tk.LEFT, padx=12, pady=8)
+                self._bind_location_popup(chk, mod)
 
                 badge_lbl = tk.Label(
                     card,

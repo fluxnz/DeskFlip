@@ -25,6 +25,8 @@ Some data depends on the applications and Windows features installed on the sour
 
 DeskFlip packages selected data in a portable ZIP archive. The archive includes a migration reference manifest, and a companion reference JSON file is saved next to it. When you open an archive to import, DeskFlip reads the manifest to identify the included categories and preselects them; you can change the selection before restoring. An **Extract All** option is also available for extracting archive contents to a folder.
 
+Right-clicking a module name on the Backup or Import screen opens a floating bulleted list of the folders and registry keys that module reads from. It stays visible while the cursor is over it and fades out when the cursor leaves.
+
 The app detects when relevant applications are running before a backup or an import and lets you close them or cancel. On the import screen each component also shows whether the application is detected on the current PC ("This PC: ●/○"), so you can tell whether restoring it is worthwhile. Backup and restore jobs show live progress and write timestamped logs. Active jobs can be stopped; cancellation is cooperative and happens at file or module checkpoints.
 
 ### Sensitive data
