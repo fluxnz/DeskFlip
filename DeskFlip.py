@@ -3995,22 +3995,6 @@ class ModernMigratorApp:
             logo_lbl = tk.Label(header, image=self.flip_logo, bg=THEME["surface"], bd=0)
             logo_lbl.pack(side=tk.RIGHT, padx=24, pady=14)
 
-        about_button = tk.Button(
-            header,
-            text="About",
-            font=("Segoe UI", 9, "bold"),
-            bg=THEME["surface_alt"],
-            fg=THEME["text"],
-            activebackground=THEME["card_bg"],
-            activeforeground="#ffffff",
-            bd=0,
-            padx=12,
-            pady=6,
-            cursor="hand2",
-            command=self._show_about_window
-        )
-        about_button.pack(side=tk.RIGHT, padx=(0, 16), pady=20)
-
         # Status Bar (Docked at bottom first)
         status_bar = tk.Frame(self.root, bg=THEME["surface"], height=34)
         status_bar.pack(fill=tk.X, side=tk.BOTTOM)
@@ -4024,6 +4008,25 @@ class ModernMigratorApp:
             bg=THEME["surface"]
         )
         status_lbl.pack(side=tk.LEFT, padx=16)
+
+        about_holder = tk.Frame(status_bar, bg=THEME["surface"])
+        about_holder.pack(side=tk.RIGHT, padx=(0, 16), pady=3)
+        about_holder.pack_propagate(False)
+        about_button = tk.Button(
+            about_holder,
+            text="About",
+            font=("Segoe UI", 9, "bold"),
+            bg=THEME["surface_alt"],
+            fg=THEME["text"],
+            activebackground=THEME["card_bg"],
+            activeforeground="#ffffff",
+            bd=0,
+            padx=10,
+            pady=2,
+            cursor="hand2",
+            command=self._show_about_window
+        )
+        about_button.pack(fill=tk.BOTH, expand=True)
 
         btn_win_toggle = tk.Button(
             status_bar,
@@ -4039,8 +4042,10 @@ class ModernMigratorApp:
             cursor="hand2",
             command=self._show_progress_window
         )
-        btn_win_toggle.pack(side=tk.RIGHT, padx=12, pady=3)
+        btn_win_toggle.pack(side=tk.RIGHT, padx=(12, 28), pady=3)
 
+        about_holder.config(width=about_button.winfo_reqwidth(), height=btn_win_toggle.winfo_reqheight())
+        self._status_buttons = (about_button, btn_win_toggle)
         self.btn_stop_job = tk.Button(
             status_bar,
             text="■ Stop Job",
