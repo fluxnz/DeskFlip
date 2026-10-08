@@ -17,6 +17,8 @@ Select individual categories in the app's backup and import screens. Available d
 
 Some data depends on the applications and Windows features installed on the source or destination PC. Review the selection in the app before running a migration.
 
+**Registry settings:** each module also exports the HKCU registry keys it depends on (for example pointer schemes, accent colors, keyboard layouts, Outlook options, console settings, browser policies and OpenSSH agent keys). They are stored in the archive under `Registry\<module>` and are re-imported automatically whenever that module is selected on import. Only keys that exist on the source PC are captured, and per-user (HKCU) keys only.
+
 **Remote Desktop Manager note:** DeskFlip copies the local `%LOCALAPPDATA%\Devolutions\RemoteDesktopManager` folder and its registry settings. Install Remote Desktop Manager on the new PC before restoring. Entries held in a remote or shared data source are not covered; for those, and as a fail-safe, also use RDM's own export (File > Settings > Export).
 
 ## Backups and restore

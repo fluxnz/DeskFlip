@@ -1646,6 +1646,40 @@ def restore_registry_dict(key_path, data):
     return count
 
 
+def backup_module_registry(mod, temp_dir: Path, log):
+    """Export every HKCU key listed in a module's REGISTRY_KEYS that exists on this PC."""
+    exported = []
+    keys = getattr(mod, "REGISTRY_KEYS", [])
+    if not keys:
+        return exported
+    dest = temp_dir / "Registry" / mod.ID
+    for idx, key_path in enumerate(keys, 1):
+        if not reg_key_exists(key_path):
+            continue
+        if export_registry_key(key_path, dest / f"{idx:02d}.reg"):
+            exported.append(key_path)
+            log(f"Exported registry key HKCU\\{key_path}.", level="INFO")
+    return exported
+
+
+def restore_module_registry(mod, temp_dir: Path, log):
+    """Import every registry file captured for a module, if present in the backup."""
+    reg_dir = temp_dir / "Registry" / mod.ID
+    if not reg_dir.is_dir():
+        return 0
+    imported = 0
+    for reg_file in sorted(reg_dir.glob("*.reg")):
+        if import_registry_key(reg_file):
+            imported += 1
+    if imported:
+        log(f"Imported {imported} registry key export(s) for {mod.NAME}.", level="SUCCESS")
+        if mod.ID == "mouse":
+            ctypes.windll.user32.SystemParametersInfoW(0x0057, 0, 0, 0)  # SPI_SETCURSORS
+        elif mod.ID == "themes":
+            ctypes.windll.user32.PostMessageW(0xFFFF, 0x001A, 0, "ImmersiveColorSet")
+    return imported
+
+
 # ==============================================================================
 # Migration Modules
 # ==============================================================================
@@ -1661,6 +1695,7 @@ class MigrationCategory:
 
 class ModuleEdge:
     ID = "edge"
+    REGISTRY_KEYS = [r"Software\Policies\Microsoft\Edge"]
     NAME = "Microsoft Edge"
     CATEGORY = MigrationCategory.CAT_BROWSERS
     DESCRIPTION = "Favorites, profiles, passwords, login sessions, history, and browser extensions"
@@ -1775,6 +1810,7 @@ class ModuleEdge:
 
 class ModuleChrome:
     ID = "chrome"
+    REGISTRY_KEYS = [r"Software\Policies\Google\Chrome"]
     NAME = "Google Chrome"
     CATEGORY = MigrationCategory.CAT_BROWSERS
     DESCRIPTION = "Favorites, profiles, passwords, login sessions, history, and browser extensions"
@@ -1889,6 +1925,7 @@ class ModuleChrome:
 
 class ModuleFirefox:
     ID = "firefox"
+    REGISTRY_KEYS = [r"Software\Policies\Mozilla\Firefox"]
     NAME = "Mozilla Firefox"
     CATEGORY = MigrationCategory.CAT_BROWSERS
     DESCRIPTION = "Favorites, bookmarks, logins, passwords, browsing history, and extensions"
@@ -1992,6 +2029,7 @@ class ModuleFirefox:
 
 class ModuleWallpaper:
     ID = "wallpaper"
+    REGISTRY_KEYS = [r"Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers"]
     NAME = "Desktop Wallpaper"
     CATEGORY = MigrationCategory.CAT_WINDOWS
     DESCRIPTION = "Current Windows 11 desktop wallpaper image, position style, and tiling"
@@ -2105,6 +2143,7 @@ class ModuleWallpaper:
 
 class ModuleMouse:
     ID = "mouse"
+    REGISTRY_KEYS = [r"Control Panel\Cursors", r"Control Panel\Accessibility\MouseKeys"]
     NAME = "Mouse Settings"
     CATEGORY = MigrationCategory.CAT_WINDOWS
     DESCRIPTION = "Cursor sensitivity, double-click speed, mouse wheel, acceleration, and button swapping"
@@ -2147,6 +2186,7 @@ class ModuleMouse:
 
 class ModuleKeyboard:
     ID = "keyboard"
+    REGISTRY_KEYS = [r"Keyboard Layout", r"Control Panel\Accessibility\Keyboard Response", r"Control Panel\Accessibility\StickyKeys", r"Control Panel\Accessibility\ToggleKeys"]
     NAME = "Keyboard Settings"
     CATEGORY = MigrationCategory.CAT_WINDOWS
     DESCRIPTION = "Key repeat rate, repeat delay, and initial indicators"
@@ -2191,6 +2231,7 @@ class ModuleKeyboard:
 
 class ModuleThemes:
     ID = "themes"
+    REGISTRY_KEYS = [r"Control Panel\Colors", r"Software\Microsoft\Windows\CurrentVersion\Explorer\Accent"]
     NAME = "Theme & Colors"
     CATEGORY = MigrationCategory.CAT_WINDOWS
     DESCRIPTION = "Light/Dark mode preferences, accent colors, transparency, and DWM window effects"
@@ -2251,6 +2292,7 @@ class ModuleThemes:
 
 class ModuleOutlook:
     ID = "outlook"
+    REGISTRY_KEYS = [r"Software\Microsoft\Office\16.0\Outlook\Options", r"Software\Microsoft\Office\16.0\Outlook\Preferences", r"Software\Microsoft\Office\16.0\Outlook\Setup", r"Software\Microsoft\Office\16.0\Common\MailSettings", r"Software\Microsoft\Office\15.0\Outlook\Options", r"Software\Microsoft\Office\15.0\Outlook\Preferences", r"Software\Microsoft\Office\15.0\Common\MailSettings"]
     NAME = "Outlook Profiles, Accounts & PSTs"
     CATEGORY = MigrationCategory.CAT_OFFICE
     DESCRIPTION = "MAPI profiles, accounts, email signatures, autocomplete cache, and personal .pst files (offline .ost excluded)"
@@ -2468,6 +2510,7 @@ class ModuleQuickLaunch:
 
 class ModuleTaskbar:
     ID = "taskbar"
+    REGISTRY_KEYS = [r"Software\Microsoft\Windows\CurrentVersion\Search"]
     NAME = "Taskbar Pinned Icons"
     CATEGORY = MigrationCategory.CAT_SHORTCUTS
     DESCRIPTION = "Pinned application shortcuts on the Windows 11 Taskbar and Taskband layout"
@@ -2628,6 +2671,7 @@ class ModuleWiFi:
 
 class ModuleExplorerPrefs:
     ID = "explorer_prefs"
+    REGISTRY_KEYS = [r"Software\Microsoft\Windows\CurrentVersion\Explorer\Ribbon", r"Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons"]
     NAME = "File Explorer Preferences"
     CATEGORY = MigrationCategory.CAT_WINDOWS
     DESCRIPTION = "Folder view options (show hidden files, file extensions, compact view, launch folder, navigation pane)"
@@ -2681,6 +2725,7 @@ class ModuleExplorerPrefs:
 
 class ModuleSoundPrefs:
     ID = "sound_prefs"
+    REGISTRY_KEYS = [r"Software\Microsoft\Multimedia\Audio"]
     NAME = "Sound & Audio Settings"
     CATEGORY = MigrationCategory.CAT_WINDOWS
     DESCRIPTION = "Per-application volume mixer preferences, communications devices, and Windows sound schemes"
@@ -2726,6 +2771,7 @@ class ModuleSoundPrefs:
 
 class ModuleTerminalPS:
     ID = "terminal_powershell"
+    REGISTRY_KEYS = [r"Console"]
     NAME = "Windows Terminal & PowerShell"
     CATEGORY = MigrationCategory.CAT_DEV_TOOLS
     DESCRIPTION = "Windows Terminal profiles, color schemes, keybindings (settings.json), and PowerShell user profile scripts"
@@ -2972,6 +3018,7 @@ class ModuleUserFonts:
 
 class ModuleGitSSH:
     ID = "git_ssh"
+    REGISTRY_KEYS = [r"Software\OpenSSH"]
     NAME = "Git & SSH Configurations"
     CATEGORY = MigrationCategory.CAT_DEV_TOOLS
     DESCRIPTION = "Git global configuration (.gitconfig, .gitignore_global) and SSH keys & host configuration (.ssh)"
@@ -3218,6 +3265,7 @@ class ModuleSSHAndFTP:
 
 class ModuleDevolutionsRDM:
     ID = "devolutions_rdm"
+    REGISTRY_KEYS = [r"Software\Devolutions"]
     NAME = "Devolutions Remote Desktop Manager"
     CATEGORY = MigrationCategory.CAT_DEV_TOOLS
     DESCRIPTION = "Devolutions Remote Desktop Manager local settings and local data sources (%LOCALAPPDATA%\\Devolutions\\RemoteDesktopManager) plus its registry settings"
@@ -5276,6 +5324,10 @@ class ModernMigratorApp:
                 self.log(f"[STEP {idx}/{len(selected_ids)}] Packaging {mod.NAME}...", level="STEP")
                 try:
                     summary_data = mod.backup(temp_dir, self.log)
+                    registry_keys = backup_module_registry(mod, temp_dir, self.log)
+                    if registry_keys:
+                        summary_data = dict(summary_data or {})
+                        summary_data["registry_keys"] = registry_keys
                     if check_job_cancelled():
                         cancel_backup()
                         return
@@ -5730,6 +5782,7 @@ class ModernMigratorApp:
                 self.log(f"[STEP {idx}/{len(selected_ids)}] Restoring {mod.NAME}...", level="STEP")
                 try:
                     mod.restore(temp_dir, self.log)
+                    restore_module_registry(mod, temp_dir, self.log)
                     if check_job_cancelled():
                         cancel_restore()
                         return
