@@ -3885,6 +3885,7 @@ class ModernMigratorApp:
         self.status_text = tk.StringVar(value="Ready")
         self.encrypt_archive_var = tk.BooleanVar(value=True)
         self.backup_requires_password = False
+        self.backup_source_username = None
         self.backup_filenames_encrypted = False
         self.backup_archive_loaded = False
         self.is_busy = False
@@ -5628,11 +5629,19 @@ class ModernMigratorApp:
             self.selected_backup_path.set(f)
             self._inspect_backup_archive(Path(f))
 
+    def _username_mismatch(self) -> bool:
+        """True when the backup records a username different from the current Windows user (domain ignored)."""
+        src = (self.backup_source_username or "").strip().lower()
+        if not src or src == "unknown":
+            return False
+        return src != os.environ.get("USERNAME", "").strip().lower()
+
     def _inspect_backup_archive(self, zip_path: Path):
         """Read reference settings from archive and pre-select matching options."""
         self.log(f"Inspecting backup package: {zip_path.name}...", level="STEP")
         ref_data = None
         self.backup_archive_loaded = False
+        self.backup_source_username = None
 
         try:
             with zipfile.ZipFile(zip_path, "r") as zf:
@@ -5664,6 +5673,7 @@ class ModernMigratorApp:
             src_info = ref_data.get("source_machine", {})
             src_comp = src_info.get("computer_name", "Unknown PC")
             src_user = src_info.get("username", "Unknown User")
+            self.backup_source_username = src_info.get("username")
             ts = ref_data.get("created_timestamp") or ref_data.get("created_at", "Unknown Date")
             selected_mods = ref_data.get("selected_modules") or ref_data.get("included_modules", [])
             module_settings = ref_data.get("module_settings", {})
@@ -5721,6 +5731,12 @@ class ModernMigratorApp:
             self._refresh_restore_custom_cards()
 
             self.log(f"Auto-detected settings: pre-selected {len(selected_mods)} item(s) from {src_user}@{src_comp}.", level="SUCCESS")
+            if self._username_mismatch():
+                cur_user = os.environ.get("USERNAME", "Unknown")
+                self.lbl_origin_info.config(text=info_text + f" | ⚠ Username differs (backup: {src_user}, this PC: {cur_user})", fg=THEME["warning"])
+                self.log(f"Username mismatch: backup was made by '{src_user}', current user is '{cur_user}'. Some restored paths may keep the old name.", level="WARN")
+            else:
+                self.log(f"Username check: backup user matches current user ({src_user}).", level="INFO")
         else:
             self.backup_requires_password = False
             self.backup_filenames_encrypted = False
@@ -5820,9 +5836,16 @@ class ModernMigratorApp:
             messagebox.showwarning("No Items Selected", "Please select at least one item or custom folder to import.", parent=self.root)
             return
 
+        mismatch_note = ""
+        if self._username_mismatch():
+            mismatch_note = (
+                f"\n\n⚠ Username differs: backup was made by '{self.backup_source_username}', "
+                f"you are '{os.environ.get('USERNAME', 'Unknown')}'. Some restored paths may keep the old name "
+                f"and saved passwords/credentials may not decrypt."
+            )
         confirm = messagebox.askyesno(
             "Confirm Import",
-            f"Are you ready to restore {len(selected_ids)} component(s) and {len(active_custom_restore)} custom folder(s) to this Windows 11 machine?\n\nTarget browsers/apps will be closed to release file locks before import.",
+            f"Are you ready to restore {len(selected_ids)} component(s) and {len(active_custom_restore)} custom folder(s) to this Windows 11 machine?\n\nTarget browsers/apps will be closed to release file locks before import.{mismatch_note}",
             parent=self.root
         )
         if not confirm:
