@@ -30,6 +30,7 @@ import sys
 import json
 import shutil
 import base64
+import gzip
 import ctypes
 import zipfile
 import uuid
@@ -37,6 +38,7 @@ import threading
 import subprocess
 import winreg
 import platform
+import tempfile
 from pathlib import Path
 from datetime import datetime
 import tkinter as tk
@@ -5985,6 +5987,15 @@ class ModernMigratorApp:
 # Main Entry Point
 # ==============================================================================
 
+def _configure_application_icon(root: tk.Tk) -> Path:
+    """Materialize the embedded ICO so Tk can use it for the app window."""
+    icon_path = Path(tempfile.gettempdir()) / f"{APP_TITLE}_{os.getpid()}.ico"
+    icon_data = gzip.decompress(base64.b64decode(EMBEDDED_ICON_GZIP_BASE64))
+    icon_path.write_bytes(icon_data)
+    root.iconbitmap(default=str(icon_path))
+    return icon_path
+
+
 def main():
     global SINGLE_INSTANCE_MUTEX
 
@@ -6003,14 +6014,21 @@ def main():
     if SINGLE_INSTANCE_MUTEX is None:
         return
 
+    icon_path = None
     try:
         root = tk.Tk()
+        icon_path = _configure_application_icon(root)
         root.withdraw()
         ModernMigratorApp(root)
         center_window(root)
         root.deiconify()
         root.mainloop()
     finally:
+        if icon_path is not None:
+            try:
+                icon_path.unlink(missing_ok=True)
+            except OSError:
+                pass
         release_single_instance_mutex(SINGLE_INSTANCE_MUTEX)
         SINGLE_INSTANCE_MUTEX = None
 

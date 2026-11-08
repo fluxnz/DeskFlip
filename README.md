@@ -44,3 +44,22 @@ Run `DeskFlip.exe` from the packaged distribution on Windows 11. Python does not
 AES-256 password-protected archives use the optional `pyzipper` dependency. It must be included when the executable is built for password-protected backup and restore to be available. If it is not included, unprotected backups and imports still work, but the app cannot create or open AES-encrypted archives.
 
 The Python source is available for developers who want to inspect or build the application; end users can run the packaged executable without installing Python packages.
+
+## Build from source
+
+Install the optional AES archive dependency before building so password-protected backup and restore are included in the executable:
+
+```powershell
+python -m pip install pyinstaller pyzipper
+```
+
+The application icon is embedded in `DeskFlip.py`. Decode it to a temporary `.ico` file, then build with explicit package collection for `pyzipper` and its `pycryptodomex` crypto provider:
+
+```powershell
+$iconPath = Join-Path $env:TEMP 'DeskFlip-build-icon.ico'
+# Decode EMBEDDED_ICON_GZIP_BASE64 from DeskFlip.py into $iconPath.
+pyinstaller --noconfirm --clean --onefile --windowed --name DeskFlip `
+  --icon $iconPath --collect-all pyzipper --collect-all Cryptodome DeskFlip.py
+```
+
+The resulting executable is `dist\DeskFlip.exe`. The temporary icon file can be removed after the build.
